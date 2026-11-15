@@ -1,0 +1,17 @@
+# Velik PDF z zbirko lanskoletnih seminarjev
+assignment1/docs/Zbirka seminarjev*.pdf
+
+# QCADesigner-E: datoteke, ki nastanejo med simulacijo
+*.trace
+*.sim
+
+# sistemske datoteke
+.DS_Store
+
+# Python
+__pycache__/
+.venv/
+
+# nastavitve urejevalnikov
+.vscode/
+.idea/

@@ -1,0 +1,82 @@
+Popravki sesutij QCADesigner-E (commit 3bc90302) na sodobnem Linuxu. Ne vplivajo na izracun energije.
+
+1. QCADTreeViewContainer.c: sesutje ob Simulation > Simulation Type Setup. Sodobna GLib vrne NULL
+   za g_type_class_peek() na tipu, ki je se v svojem class_init, zato uporabimo neposredno klass.
+2. vector_table_options_dialog_interface.c, graph_dialog_interface.c: sesutje ob zaprtju okna
+   Vector Table Setup ali Simulation Results s krizcem. Obravnavalnika delete-event vracata void,
+   GTK pa prebere nakljucen gboolean; gtk_widget_hide_on_delete okno skrije in vrne TRUE.
+3. vector_table_options_dialog_callbacks.c: sesutje ob Delete Vector, ko ni izbran noben stolpec
+   (npr. Add, Add, Delete). Brez izbire izbrisemo zadnji vektor; ce ga ni, ne naredimo nicesar.
+4. exp_array.c: pokvarjen pomnilnik na 64-bitnih sistemih pri brisanju vrstic vecdimenzionalnega
+   EXP_ARRAY (npr. brisanje vektorja, ki ni zadnji). Vrstice so kazalci (8 B), memmove pa je uporabil
+   velikost listnega elementa (4 B za gboolean). Uporabimo isto velikost kot insert_vals_flat.
+
+diff --git a/QCADesignerE/src/exp_array.c b/QCADesignerE/src/exp_array.c
+index 32e2020..3ed3185 100644
+--- a/QCADesignerE/src/exp_array.c
++++ b/QCADesignerE/src/exp_array.c
+@@ -238,9 +238,9 @@ static void exp_array_vremove_vals (EXP_ARRAY *exp_array, int icDimPairs, va_lis
+   if (exp_array->icUsed > 0)
+     {
+     if (idx + icElements < exp_array->icUsed)
+-      memmove (exp_array->data + (      idx          * exp_array->cbSize),
+-               exp_array->data + ((idx + icElements) * exp_array->cbSize),
+-              (exp_array->icUsed - idx - icElements) * exp_array->cbSize) ;
++      memmove (exp_array->data + (      idx          * (exp_array->icDimensions > 1 ? sizeof (EXP_ARRAY *) : exp_array->cbSize)),
++               exp_array->data + ((idx + icElements) * (exp_array->icDimensions > 1 ? sizeof (EXP_ARRAY *) : exp_array->cbSize)),
++              (exp_array->icUsed - idx - icElements) * (exp_array->icDimensions > 1 ? sizeof (EXP_ARRAY *) : exp_array->cbSize)) ;
+     exp_array->icUsed -= icElements ;
+     }
+ 
+diff --git a/QCADesignerE/src/graph_dialog_interface.c b/QCADesignerE/src/graph_dialog_interface.c
+index 367d02b..33ae045 100644
+--- a/QCADesignerE/src/graph_dialog_interface.c
++++ b/QCADesignerE/src/graph_dialog_interface.c
+@@ -292,7 +292,7 @@ void create_graph_dialog (graph_D *dialog)
+   g_signal_connect (G_OBJECT (dialog->tview), "row-collapsed", (GCallback)set_bus_expanded, (gpointer)FALSE) ;
+   g_signal_connect (G_OBJECT (gtk_range_get_adjustment (GTK_RANGE (dialog->hscroll))), "value-changed", (GCallback)hscroll_adj_value_changed, dialog->dialog) ;
+   g_signal_connect (G_OBJECT (dialog->vp), "scroll-event", (GCallback)viewport_scroll, dialog) ;
+-  g_signal_connect (G_OBJECT (dialog->dialog), "delete-event", (GCallback)btnClose_clicked, NULL) ;
++  g_signal_connect (G_OBJECT (dialog->dialog), "delete-event", (GCallback)gtk_widget_hide_on_delete, NULL) ;
+   }
+ 
+ void attach_graph_widgets (graph_D *dialog, GtkWidget *table, GtkWidget *trace, GtkWidget *ruler, GtkWidget *ui, int idxTbl)
+diff --git a/QCADesignerE/src/objects/QCADTreeViewContainer.c b/QCADesignerE/src/objects/QCADTreeViewContainer.c
+index 9fbcab9..280bb9e 100644
+--- a/QCADesignerE/src/objects/QCADTreeViewContainer.c
++++ b/QCADesignerE/src/objects/QCADTreeViewContainer.c
+@@ -78,7 +78,7 @@ GType qcad_tree_view_container_get_type ()
+ static void qcad_tree_view_container_class_init (QCADTreeViewContainerClass *klass)
+   {
+   GTK_CONTAINER_CLASS (klass)->add = qcad_tree_view_container_add ;
+-  G_OBJECT_CLASS (g_type_class_peek (QCAD_TYPE_TREE_VIEW_CONTAINER))->finalize = qcad_tree_view_container_instance_finalize ;
++  G_OBJECT_CLASS (klass)->finalize = qcad_tree_view_container_instance_finalize ;
+   }
+ 
+ static void qcad_tree_view_container_instance_init (QCADTreeViewContainer *tvc)
+diff --git a/QCADesignerE/src/vector_table_options_dialog_callbacks.c b/QCADesignerE/src/vector_table_options_dialog_callbacks.c
+index 56cc6cc..2c11d57 100644
+--- a/QCADesignerE/src/vector_table_options_dialog_callbacks.c
++++ b/QCADesignerE/src/vector_table_options_dialog_callbacks.c
+@@ -120,6 +120,8 @@ void vector_table_options_dialog_btnDelete_clicked (GtkWidget *widget, gpointer
+   VectorTable *pvt = g_object_get_data (G_OBJECT (data), "user_pvt") ;
+ 
+   if (NULL == dialog || NULL == pvt) return ;
++  if (idxVector < 0) idxVector = pvt->vectors->icUsed - 1 ;
++  if (idxVector < 0) return ;
+ 
+   if (NULL != (llCols = gtk_tree_view_get_columns (GTK_TREE_VIEW (dialog->tv))))
+     // The first vector
+diff --git a/QCADesignerE/src/vector_table_options_dialog_interface.c b/QCADesignerE/src/vector_table_options_dialog_interface.c
+index a1ca9f3..32443f0 100644
+--- a/QCADesignerE/src/vector_table_options_dialog_interface.c
++++ b/QCADesignerE/src/vector_table_options_dialog_interface.c
+@@ -215,7 +215,7 @@ void create_vector_table_options_dialog (vector_table_options_D *dialog)
+ 
+   g_signal_connect (G_OBJECT (dialog->tv),     "style-set",    (GCallback)tree_view_style_set,                          NULL) ;
+   g_signal_connect (G_OBJECT (cr),             "toggled",      (GCallback)vt_model_active_toggled,                      dialog->tv) ;
+-  g_signal_connect (G_OBJECT (dialog->dialog), "delete-event", (GCallback)vector_table_options_dialog_btnClose_clicked, NULL) ;
++  g_signal_connect (G_OBJECT (dialog->dialog), "delete-event", (GCallback)gtk_widget_hide_on_delete, NULL) ;
+ 
+   gtk_window_add_accel_group (GTK_WINDOW (dialog->dialog), accel_group) ;
+   }

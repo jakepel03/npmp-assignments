@@ -1,0 +1,74 @@
+diff --git a/QCADesignerE/src/callbacks.c b/QCADesignerE/src/callbacks.c
+index d67c3d3..6b07352 100644
+--- a/QCADesignerE/src/callbacks.c
++++ b/QCADesignerE/src/callbacks.c
+@@ -1021,6 +1021,33 @@ void on_simulation_engine_setup_menu_item_activate(GtkMenuItem * menuitem, gpoin
+ get_sim_engine_from_user (GTK_WINDOW (main_window.main_window), &(project_options.SIMULATION_ENGINE)) ;
+ }  //on_simulation_engine_setup_menu_item_activate
+ 
++// Set every non-fixed cell back to polarization 0 (the state of a freshly drawn cell), so the
++// design no longer shows the polarization left behind by the last simulation run.
++// Fixed cells keep their polarization because it is part of the design.
++void on_reset_polarization_menu_item_activate (GtkMenuItem *menuitem, gpointer user_data)
++  {
++  GList *llItrLayer = NULL, *llItrObj = NULL ;
++  gboolean bChanged = FALSE ;
++
++  if (NULL == project_options.design) return ;
++
++  for (llItrLayer = project_options.design->lstLayers ; llItrLayer != NULL ; llItrLayer = llItrLayer->next)
++    if (LAYER_TYPE_CELLS == (QCAD_LAYER (llItrLayer->data))->type)
++      for (llItrObj = (QCAD_LAYER (llItrLayer->data))->lstObjs ; llItrObj != NULL ; llItrObj = llItrObj->next)
++        if (NULL != llItrObj->data && QCAD_IS_CELL (llItrObj->data))
++          if (QCAD_CELL_FIXED != QCAD_CELL (llItrObj->data)->cell_function)
++            {
++            qcad_cell_set_polarization (QCAD_CELL (llItrObj->data), 0.0) ;
++            bChanged = TRUE ;
++            }
++
++  if (bChanged)
++    {
++    project_options.bDesignAltered = TRUE ;
++    redraw_async (NULL) ;
++    }
++  }
++
+ void on_reset_zoom_menu_item_activate (GtkMenuItem *menuitem, gpointer user_data)
+   {
+   reset_zoom () ;
+diff --git a/QCADesignerE/src/callbacks.h b/QCADesignerE/src/callbacks.h
+index 281bc97..990bea5 100644
+--- a/QCADesignerE/src/callbacks.h
++++ b/QCADesignerE/src/callbacks.h
+@@ -42,6 +42,7 @@ void on_clock_select_menu_item_activate (GtkMenuItem *menuitem, gpointer user_da
+ void on_clock_increment_menu_item_activate (GtkMenuItem *menuitem, gpointer user_data);
+ void on_simulation_type_setup_menu_item_activate (GtkMenuItem *menuitem, gpointer user_data);
+ void on_simulation_engine_setup_menu_item_activate (GtkMenuItem *menuitem, gpointer user_data);
++void on_reset_polarization_menu_item_activate (GtkMenuItem *menuitem, gpointer user_data);
+ void on_random_fault_setup_menu_item_activate (GtkMenuItem *menuitem, gpointer user_data);
+ void on_reset_zoom_menu_item_activate (GtkMenuItem *menuitem, gpointer user_data);
+ void on_zoom_in_menu_item_activate (GtkMenuItem *menuitem, gpointer user_data);
+diff --git a/QCADesignerE/src/interface.c b/QCADesignerE/src/interface.c
+index e93c6c8..b973b31 100644
+--- a/QCADesignerE/src/interface.c
++++ b/QCADesignerE/src/interface.c
+@@ -567,6 +567,19 @@ void create_main_window (main_W *main_window){
+   gtk_widget_show (simulation_engine_setup_menu_item);
+   gtk_container_add (GTK_CONTAINER (simulation_menu_menu), simulation_engine_setup_menu_item);
+ 
++  // Reset Polarization: clear the polarization left on cells by the last simulation run
++  {
++  GtkWidget *reset_polarization_menu_item = NULL ;
++  mnuiSep = gtk_menu_item_new ();
++  gtk_widget_show (mnuiSep);
++  gtk_container_add (GTK_CONTAINER (simulation_menu_menu), mnuiSep);
++  gtk_widget_set_sensitive (mnuiSep, FALSE);
++  reset_polarization_menu_item = gtk_menu_item_new_with_mnemonic (_("_Reset Polarization"));
++  gtk_widget_show (reset_polarization_menu_item);
++  gtk_container_add (GTK_CONTAINER (simulation_menu_menu), reset_polarization_menu_item);
++  g_signal_connect (G_OBJECT (reset_polarization_menu_item), "activate", (GCallback)on_reset_polarization_menu_item_activate, NULL);
++  }
++
+ //////////////////////////////////////////////////////////////////////////////////////////////////////////
+ /////////////////////////////////////////////// HELP MENU ////////////////////////////////////////////////
+ //////////////////////////////////////////////////////////////////////////////////////////////////////////

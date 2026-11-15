@@ -1,0 +1,13 @@
+services:
+  qca-designer:
+    build: .
+    image: qca-designer
+    user: "${UID:-1000}:${GID:-1000}"
+    network_mode: none
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - XAUTHORITY=/tmp/.Xauthority
+    volumes:
+      - ./:/work                                 
+      - /tmp/.X11-unix:/tmp/.X11-unix             
+      - ${XAUTHORITY:-${HOME}/.Xauthority}:/tmp/.Xauthority:ro  # X auth cookie
