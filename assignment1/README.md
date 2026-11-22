@@ -16,7 +16,10 @@ vezja/
   3_enoplastni/                lastna enoplastna nesinhrona različica
   4_enoplastni_sinhroni/       vmesna sinhrona različica (ni v poročilu)
   5_enoplastni_sinhroni_5x5/   lastna enoplastna sinhrona različica (v poročilu »sinhroni«)
-rezultati/energija.csv         vse meritve energije
+rezultati/
+  energija.csv                 vse meritve energije
+  diagrami.py                  izris grafov iz poročila
+porocilo/                      izvorne datoteke LaTeX
 patches/                       naši popravki QCADesigner-E
 Dockerfile, docker-compose.yml, Makefile   prevajanje in zagon simulatorja
 ```
