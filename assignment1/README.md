@@ -2,7 +2,7 @@
 
 Skupina 21 (Tara Majkič, Jaka Pelko, Miha Vintar), NPMP 2026/27
 
-Poročilo: [report.pdf](report.pdf) · predstavitev: [predstavitev.pptx](predstavitev.pptx)
+Poročilo: [porocilo.pdf](porocilo.pdf) · predstavitev: [predstavitev.pptx](predstavitev.pptx)
 
 Spodaj je opisano, kako ponovimo meritve iz poročila. Razlaga metod in rezultatov je v poročilu (razdelka *Metode* in *Rezultati*).
 
